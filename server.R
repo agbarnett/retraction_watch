@@ -14,6 +14,28 @@ shinyServer(function(input, output) {
     infile <- input$bibtex_file$datapath # must use datapath
     email <- "a.barnett@qut.edu.au" # use my own, may as well know if there are problems
 
+    # read in the bibtex file; use same comment char as bibtex
+    bibtex = read_delim(file = infile, 
+                        col_names = FALSE, 
+                        delim = '^', 
+                        quote='', 
+                        comment='%', 
+                        local = locale(encoding = "latin1")) # dummy separator to get everything in one variable
+    #bibtex = read.table(file = infile, header = FALSE, sep = '^', quote='', comment.char='%', encoding="UTF-8") # dummy separator to get everything in one variable
+    # get the total number of references
+    types = c('article','book','booklet','conference','inbook','incollection','inprocedings','manual','misc','mastersthesis','phdthesis','proceedings','techreport','unpublished')
+    patterns = paste('@', types, '\\{', sep='')
+    patterns = paste(patterns, collapse='|')
+    ref_total = sum(str_detect(tolower(bibtex$X1), pattern=patterns))
+    # get the DOIs
+    bibtex = mutate(bibtex, X1 = str_replace_all(X1, pattern = '\\b ?doi ?=? ?(\\r|\\n)', ' doi ')) %>% # attemp to remove carraige returns
+      filter(str_detect(X1, pattern='\\bdoi\\b')) %>%
+      mutate(X1 = str_remove_all(X1, ',|(url|doi) ?= ?|\\t|\\{|\\}|http://dx.doi.org/|https://doi.org/'),
+             X1 = str_squish(X1)) %>%
+      filter(str_detect(X1, '^10\\.')) %>% # all DOIs start 10.
+      unique()
+    n_bibtex = nrow(bibtex)
+    
     # get the latest retraction data from crossref
     url = paste("https://api.labs.crossref.org/data/retractionwatch?mailto=", email, sep='')
     destfile = file.path(tempdir(), 'retractions.csv') # put in temporary folder
@@ -21,30 +43,17 @@ shinyServer(function(input, output) {
     #print(destfile)
     # now read into a csv
     retractions = read.csv(destfile) %>%
-      select(OriginalPaperDOI, Title, Journal) %>%
+      select(OriginalPaperDOI, Title, Journal, RetractionDate) %>%
       rename('DOI' = 'OriginalPaperDOI') %>%
-      mutate(DOI = str_squish(DOI))
+      separate(RetractionDate, into=c('Date',NA), sep=' ')  %>%
+      mutate(DOI = str_squish(DOI),
+             Date = as.Date(Date, '%m/%d/%Y'))
     # delete file to tidy up
     #unlink('retractions.csv')
-    
-    # read in the bibtex file
-    bibtex = read.table(file = infile, header = FALSE, sep = '!', quote='') # dummy separator to get everything in one variable
-    # get the total number of references
-    types = c('article','book','booklet','conference','inbook','incollection','inprocedings','manual','misc','mastersthesis','phdthesis','proceedings','techreport','unpublished')
-    patterns = paste('@', types, '\\{', sep='')
-    patterns = paste(patterns, collapse='|')
-    ref_total = sum(str_detect(tolower(bibtex$V1), pattern=patterns))
-    # get the DOIs
-    bibtex = mutate(bibtex, V1 = str_replace_all(V1, pattern = '\\b ?doi ?=? ?(\\r|\\n)', ' doi ')) %>% # attemp to remove carraige returns
-      filter(str_detect(V1, pattern='\\bdoi\\b')) %>%
-      mutate(V1 = str_remove_all(V1, ',|(url|doi) ?= ?|\\t|\\{|\\}|http://dx.doi.org/|https://doi.org/'),
-             V1 = str_squish(V1)) %>%
-      filter(str_detect(V1, '^10\\.')) %>% # all DOIs start 10.
-      unique()
-    n_bibtex = nrow(bibtex)
+    # could add latest date of retraction
     
     # cross-check bibtex against retractions
-    cross = semi_join(retractions, bibtex, by=join_by('DOI' == 'V1'))
+    cross = semi_join(retractions, bibtex, by=join_by('DOI' == 'X1'))
     n_matches = nrow(cross)
     
     # return
@@ -53,6 +62,7 @@ shinyServer(function(input, output) {
     to.return$n_bibtex = n_bibtex
     to.return$cross = cross
     to.return$n_matches = n_matches
+    to.return$date = max(retractions$Date)
     
     return(to.return)
     

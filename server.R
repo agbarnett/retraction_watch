@@ -31,6 +31,7 @@ shinyServer(function(input, output) {
     bibtex = mutate(bibtex, X1 = str_replace_all(X1, pattern = '\\b ?doi ?=? ?(\\r|\\n)', ' doi ')) %>% # attemp to remove carraige returns
       filter(str_detect(X1, pattern='\\bdoi\\b')) %>%
       mutate(X1 = str_remove_all(X1, ',|(url|doi) ?= ?|\\t|\\{|\\}|http://dx.doi.org/|https://doi.org/'),
+             X1 = tolower(X1),
              X1 = str_squish(X1)) %>%
       filter(str_detect(X1, '^10\\.')) %>% # all DOIs start 10.
       unique()
@@ -47,6 +48,7 @@ shinyServer(function(input, output) {
       rename('DOI' = 'OriginalPaperDOI') %>%
       separate(RetractionDate, into=c('Date',NA), sep=' ')  %>%
       mutate(DOI = str_squish(DOI),
+             DOI = tolower(DOI),
              Date = as.Date(Date, '%m/%d/%Y'))
     # delete file to tidy up
     #unlink('retractions.csv')

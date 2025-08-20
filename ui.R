@@ -53,7 +53,8 @@ shinyUI(fluidPage(
   
   # footnotes
   mainPanel(
-      div("For any issues or improvements email Adrian at: ", a(href="mailto:a.barnett@qut.edu.au?subject=RetractionWatch BibTeX", "a.barnett@qut.edu.au"), ".")
+      div("For any issues or improvements email Adrian at: ", a(href="mailto:a.barnett@qut.edu.au?subject=RetractionWatch BibTeX", "a.barnett@qut.edu.au"), 
+      ". Please consider supporting the wonderful work of ", a(href='https://retractionwatch.com/support-retraction-watch/', 'Retraction Watch'), '.')
   )
   
 ))
